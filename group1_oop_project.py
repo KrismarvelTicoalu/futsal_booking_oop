@@ -81,7 +81,7 @@ def input_pelanggan():
     jam_mulai = input("Jam mulai: ")
     jam_berakhir = input("Jam berakhir: ")
     slot = input("Slot: ")
-    return Pelanggan("avel","2023-06-22","14.00","15.00",1)
+    return Pelanggan(nama,tanggal,jam_mulai,jam_berakhir,slot)
 
 def main():
     p1 = input_pelanggan()
