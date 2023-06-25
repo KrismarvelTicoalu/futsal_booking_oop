@@ -1,16 +1,80 @@
 import csv
+import datetime
+
+# Get the current datetime
+current_datetime = datetime.datetime.now()
+
+# Mendapatkan tanggal hari ini
+current_date = current_datetime.date()
+
+# Mendapatkan tanggal hari besok
+tommorow_date = current_date + datetime.timedelta(days=1)
+
+tanggal = tommorow_date
 
 class Pelanggan:
+    harga1jam = 150000
+
     def __init__(self,nama,jam,durasi):
         self.nama = nama
         self.jam = jam
         self.durasi = durasi
     
     @classmethod
+    def input_nama(cls):
+        while True:
+            nama = (input("Masukkan nama: ")).strip()
+            nama1 = nama.replace(' ','')
+            nama2 = nama.split()
+            if nama1.isalpha():
+                if len(nama2) == 1:
+                    return nama
+                else:
+                    print("Mohon masukkan hanya nama depan anda")
+                    pass
+            else:
+                print("Mohon masukkan nama anda dengan benar")
+                pass
+    
+    @classmethod
+    def input_jam(cls):
+        print("Note\n- Pemesanan hanya bisa dilakukan dalam satuan per jam")
+        print("- Tidak dapat booking di luar jam buka (10.00 - 22.00)")
+        print("- Input jam harus dibulatkan")
+        print("contoh: 14.00 --> benar")
+        print("        14.30 --> salah")
+        print("        14.03 --> salah")
+        while True:
+            try:
+                jam = int(input("Masukkan jam mulai: ").removesuffix(".00"))
+                if jam/jam!=1 :
+                    print("Mohon masukkan input yang sesuai")
+                    pass
+                else:
+                    return jam
+            except ValueError :
+                print("Mohon masukkan input yang sesuai")
+                pass
+    
+    @classmethod
+    def input_durasi(cls):
+        while True:
+            try:
+                durasi = int(input("Berapa jam? "))
+                if durasi >= 1:
+                    return durasi
+                else:
+                    print("Mohon masukkan input yang sesuai")
+                    pass
+            except ValueError:
+                print("Mohon masukkan input yang sesuai")
+                pass
+    
+    @classmethod
     def input_data(cls):
-        nama = input("Nama: ")
-        jam = input("Mulai jam berapa: ")
-        durasi = int(input("Berapa jam?: "))
+        nama = cls.input_nama()
+        jam = cls.input_jam()
+        durasi = cls.input_durasi()
         return nama,jam,durasi
     
     @property
@@ -20,14 +84,13 @@ class Pelanggan:
     @nama.setter
     def nama(self,nama):
         self._nama = nama
-
+    
     @property
     def jam(self):
         return self._jam
     
     @jam.setter
     def jam(self, jam):
-        jam = int(jam.removesuffix('.00'))
         self._jam = jam
     
     @property
@@ -43,22 +106,35 @@ class Pelanggan:
 
     def bayar(self):
         print("- Biaya 1 jam adalah Rp. 150.000")
-        harga1jam = 150000
-        total = int(harga1jam*self.durasi)
+        total = int(self.harga1jam*self.durasi)
         print("Harga yang harus dibayar = Rp",total)
         payment = int(input("Masukkan uang anda: "))
         return payment, total
 
 class PelangganLama(Pelanggan):
-    def __init__ (self, nama):
+    def __init__ (self, nama, jam, durasi):
         self.nama = nama
+        self.jam = jam
+        self.durasi = durasi
 
-    
     # Fungsi bayar() di override
     def bayar(self):
-        print("- Biaya 1 jam adalah Rp. 100.000")
-        harga1jam = 100000
-        print("Harga yang harus dibayar = Rp",int(harga1jam*self.jam))
+        print("- Biaya 1 jam adalah Rp. 150.000")
+        total_diskon = self.diskon()
+        total = int(self.harga1jam*self.durasi) - total_diskon
+        print("Harga yang harus dibayar = Rp", total)
+        payment = int(input("Masukkan uang anda: "))
+        return payment, total
+        
+
+    
+    def diskon(self):
+        total_diskon = 0
+        if self.durasi >= 2:
+            total_diskon = self.harga1jam*(20/100)
+        return total_diskon
+        
+
 
 
     
@@ -78,15 +154,34 @@ class RentalLapangan:
     
     @classmethod
     def tampilkan_daftar(cls):
+        sorted_daftar = sorted(cls.daftar, key=lambda x: x['jam'])
         print("Nama\t\tJam mulai   Jam berakhir")
         print("=========================================")
-        for slot in cls.daftar:
+        for slot in sorted_daftar:
             # print nama
             print(slot['nama'].title(),end="")
             if len(slot['nama']) < 16:
                 for _ in range(16 - len(slot['nama'])):
                     print(" ",end="")
                 print(str(slot['jam'])+".00\t   ",str(slot['jam']+1)+".00")
+    
+    def simpan_data_pelanggan(self,pelanggan):
+        with open("riwayat_pelanggan.csv", "a") as file:
+            writer = csv.DictWriter(file, fieldnames=["nama", "tanggal"])
+            writer.writerow({"nama": pelanggan.nama, "tanggal": tanggal})
+    
+    @classmethod
+    def cek_status_pelanggan(cls,nama):
+        with open("riwayat_pelanggan.csv","r") as file:
+            csv_reader = csv.DictReader(file, fieldnames=["nama","tanggal"])
+            j = 0
+            for row in csv_reader:
+                if row['nama'] == nama:
+                    j+=1
+            if j >= 3:
+                return True
+            else:
+                return False
     
     def ketersediaan(self):
         # buat empty list untuk mengisi jam2
@@ -128,18 +223,13 @@ class RentalLapangan:
         nama = input("Masukkan nama: ")
         cls.daftar = [d for d in cls.daftar if nama not in d.values()]
 
-        
-
-    
     def rincian_pemesanan(self,pelanggan):
         print("\nRincian pemesanan")
         print("======================")
         print(f"Nama: {pelanggan.nama}\nJam mulai: {pelanggan.jam}.00\nJam berakhir: {pelanggan.jam+pelanggan.durasi}.00\n======================\n")
 
 
-    def verifikasi_pembayaran(self):
-        ...
-    
+
 
 
 def main():
@@ -151,8 +241,17 @@ def main():
             # input data calon pelanggan
             nama,jam,durasi = Pelanggan.input_data()
 
-            # buat objek pelanggan dan rental
-            calon_p = Pelanggan(nama,jam,durasi)
+            # cek apakah pelanggan lama
+            status = RentalLapangan.cek_status_pelanggan(nama)
+            
+            if status == True:
+                # buat objek pelanggan lama
+                calon_p = PelangganLama(nama,jam,durasi)
+            else:
+                # buat objek pelanggan
+                calon_p = Pelanggan(nama,jam,durasi)
+            
+            # buat objek rental
             rental = RentalLapangan(calon_p)
 
             # cek ketersediaan reservasi
@@ -167,6 +266,7 @@ def main():
                         print("Kembalian anda = Rp",int(kembalian))
                     # apabila pembayaran telah diverifikasi, rental mengisi data pelanggan
                     rental.isi_data_pelanggan(available, jam_mulai)
+                    rental.simpan_data_pelanggan(calon_p)
 
                     # rental menampilkan rincian pemesanan pelanggan
                     rental.rincian_pemesanan(calon_p)
@@ -176,7 +276,6 @@ def main():
                 print("Maaf jam tidak tersedia untuk direservasi")
         elif pilihan == 2:
             # Tampilkan daftar pelanggan
-            print(RentalLapangan.daftar)
             RentalLapangan.tampilkan_daftar()
         elif pilihan == 3:
             # cancel
