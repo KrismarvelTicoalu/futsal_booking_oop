@@ -12,6 +12,8 @@ tommorow_date = current_date + datetime.timedelta(days=1)
 
 tanggal = tommorow_date
 
+
+
 class Pelanggan:
     harga1jam = 150000
 
@@ -77,39 +79,13 @@ class Pelanggan:
         durasi = cls.input_durasi()
         return nama,jam,durasi
     
-    @property
-    def nama(self):
-        return self._nama
-    
-    @nama.setter
-    def nama(self,nama):
-        self._nama = nama
-    
-    @property
-    def jam(self):
-        return self._jam
-    
-    @jam.setter
-    def jam(self, jam):
-        self._jam = jam
-    
-    @property
-    def durasi(self):
-        return self._durasi
-    
-    @durasi.setter
-    def durasi(self, durasi):
-        self._durasi = durasi
-
-    def cancel(self):
-        ...
-
     def bayar(self):
         print("- Biaya 1 jam adalah Rp. 150.000")
         total = int(self.harga1jam*self.durasi)
-        print("Harga yang harus dibayar = Rp",total)
+        print("Harga yang harus dibayar = Rp",int(total))
         payment = int(input("Masukkan uang anda: "))
-        return payment, total
+        self.total = int(total)
+        return payment, int(total)
 
 class PelangganLama(Pelanggan):
     def __init__ (self, nama, jam, durasi):
@@ -122,9 +98,10 @@ class PelangganLama(Pelanggan):
         print("- Biaya 1 jam adalah Rp. 150.000")
         total_diskon = self.diskon()
         total = int(self.harga1jam*self.durasi) - total_diskon
-        print("Harga yang harus dibayar = Rp", total)
+        print("Harga yang harus dibayar = Rp", int(total))
         payment = int(input("Masukkan uang anda: "))
-        return payment, total
+        self.total = int(total)
+        return payment, int(total)
         
 
     
@@ -139,11 +116,29 @@ class PelangganLama(Pelanggan):
 
     
 class RentalLapangan:
+    # data member private
+    __pemasukan_harian = 0
+
+    # data member public
     daftar = []
 
     def __init__(self,pelanggan=None):
         self.pelanggan = pelanggan
     
+    @classmethod
+    def setor(cls,total):
+        cls.__pemasukan_harian+=total
+    
+    @classmethod
+    def simpan_pemasukan_harian(cls):
+        try:
+            with open("rincian_pemasukan.csv", "a") as file:
+                writer = csv.DictWriter(file, fieldnames=["pemasukan", "tanggal"])
+                writer.writerow({"pemasukan": cls.__pemasukan_harian, "tanggal": tanggal})
+        except FileNotFoundError:
+            file = open("rincian_pemasukan.csv","w")
+            file.close()
+
     @classmethod
     def tampilkan_menu(cls):
         print('Selamat datang!')
@@ -165,23 +160,34 @@ class RentalLapangan:
                     print(" ",end="")
                 print(str(slot['jam'])+".00\t   ",str(slot['jam']+1)+".00")
     
+
+
+
+    
     def simpan_data_pelanggan(self,pelanggan):
         with open("riwayat_pelanggan.csv", "a") as file:
-            writer = csv.DictWriter(file, fieldnames=["nama", "tanggal"])
-            writer.writerow({"nama": pelanggan.nama, "tanggal": tanggal})
+            writer = csv.DictWriter(file, fieldnames=["nama", "tanggal","total"])
+            writer.writerow({"nama": pelanggan.nama, "tanggal": tanggal, "total" : pelanggan.total})
     
     @classmethod
     def cek_status_pelanggan(cls,nama):
-        with open("riwayat_pelanggan.csv","r") as file:
-            csv_reader = csv.DictReader(file, fieldnames=["nama","tanggal"])
-            j = 0
-            for row in csv_reader:
-                if row['nama'] == nama:
-                    j+=1
-            if j >= 3:
-                return True
-            else:
-                return False
+        try:
+            with open("riwayat_pelanggan.csv","r") as file:
+                csv_reader = csv.DictReader(file, fieldnames=["nama","tanggal"])
+                j = 0
+                for row in csv_reader:
+                    if row['nama'] == nama:
+                        j+=1
+                if j >= 3:
+                    return True
+                else:
+                    return False
+        except FileNotFoundError:
+            file = open("riwayat_pelanggan.csv","w")
+            csv_writer = csv.writer(file)
+            csv_writer.writerow(["nama","tanggal","total"])
+            file.close()
+                
     
     def ketersediaan(self):
         # buat empty list untuk mengisi jam2
@@ -211,6 +217,7 @@ class RentalLapangan:
                 new_data["nama"] = getattr(self.pelanggan,'nama')
                 new_data["jam"] = getattr(self.pelanggan,'jam')+j
                 new_data["durasi"] = getattr(self.pelanggan,'durasi')
+                new_data["total"] = getattr(self.pelanggan,'total')
                 self.daftar.append(new_data)
                 j+=1
             return True
@@ -221,12 +228,38 @@ class RentalLapangan:
     @classmethod
     def hapus_data_pelanggan(cls):
         nama = input("Masukkan nama: ")
+
+
+
+        # refund 50% uang
+        cls.refund(nama)
+
+        with open("riwayat_pelanggan.csv", 'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['nama'] == nama and row['tanggal'] == str(tanggal):
+                    rows = row
+                    rows['total'] = int(row['total']) - (int(row['total'])*2)
+                    with open("riwayat_pelanggan.csv", 'a', newline='') as file:
+                        writer = csv.DictWriter(file, fieldnames=["nama","tanggal","total"])
+                        writer.writerow(rows)
+                        break
+
         cls.daftar = [d for d in cls.daftar if nama not in d.values()]
+    
+    @classmethod
+    def refund(cls,nama):
+        for slot in cls.daftar:
+            if slot['nama'] == nama:
+                cls.__pemasukan_harian-=slot['total']
+                break
+        
+
 
     def rincian_pemesanan(self,pelanggan):
         print("\nRincian pemesanan")
         print("======================")
-        print(f"Nama: {pelanggan.nama}\nJam mulai: {pelanggan.jam}.00\nJam berakhir: {pelanggan.jam+pelanggan.durasi}.00\n======================\n")
+        print(f"Nama: {pelanggan.nama.title()}\nJam mulai: {pelanggan.jam}.00\nJam berakhir: {pelanggan.jam+pelanggan.durasi}.00\n======================\n")
 
 
 
@@ -268,6 +301,9 @@ def main():
                     rental.isi_data_pelanggan(available, jam_mulai)
                     rental.simpan_data_pelanggan(calon_p)
 
+                    # rental menyetor uang ke data member private pemasukan harian
+                    RentalLapangan.setor(total)
+
                     # rental menampilkan rincian pemesanan pelanggan
                     rental.rincian_pemesanan(calon_p)
                 else:
@@ -281,7 +317,7 @@ def main():
             # cancel
             RentalLapangan.hapus_data_pelanggan()
         elif pilihan == 4:
-            # simpan daftar ke file csv
+            RentalLapangan.simpan_pemasukan_harian()
             break
         else:
             print("Mohon masukkan input yang sesuai!")
